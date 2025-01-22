@@ -5,15 +5,64 @@ const postModal = require("./modals/post");
 const cookieParser = require("cookie-parser");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const multer = require('multer');
+const path = require('path');
+const crypto = require('crypto');
 
 app.set("view engine", "ejs");
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname,"public")));
 app.use(cookieParser());
+
+// Declare `storage` before using it in `upload`
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, './public/images/uploads');
+    },
+    filename: function (req, file, cb) {
+        crypto.randomBytes(12, (err, bytes) => {
+            if (err) return cb(err);
+            const uniqueFilename = bytes.toString("hex") + path.extname(file.originalname);
+            cb(null, uniqueFilename);
+        });
+    }
+});
+const upload = multer({ storage: storage });
+
+
 
 app.get("/", (req, res) => {
   res.render("index");
 });
+app.get("/profile/upload", (req, res) => {
+    res.render("profileuploaded");
+});
+
+app.post('/upload', isLoggedIn, upload.single("image"), async (req, res) => {
+    try {
+        let user = await userModal.findOne({ email: req.user.email });
+        user.profilepic = req.file.filename;
+        await user.save();
+
+        res.redirect('/profile');
+    } catch (err) {
+        console.error("Error uploading profile picture:", err);
+        res.status(500).send("An error occurred while uploading the profile picture.");
+    }
+});
+
+// const upload = multer({ storage: storage });
+
+// app.get("/test", (req, res) => {
+//     res.render("test");
+// });
+
+// app.post('/upload', upload.single("image"), (req, res) => {
+//     console.log(req.file); // Access uploaded file info here
+//     res.send("File uploaded successfully!");
+// });
+  
 
 app.get("/login", (req, res) => {
   res.render("login");
